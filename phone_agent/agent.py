@@ -1,6 +1,7 @@
 """Main PhoneAgent class for orchestrating phone automation."""
 
 import json
+import time
 import traceback
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, TYPE_CHECKING
@@ -131,6 +132,7 @@ class PhoneAgent:
 
             if result.finished:
                 return result.message or "Task completed"
+            time.sleep(2) # Small delay between steps
 
         return "Max steps reached"
 
