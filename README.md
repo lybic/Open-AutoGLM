@@ -1,4 +1,6 @@
-# Open-AutoGLM
+# Open-AutoGLM (Lybic Fork)
+
+> **Note**: This is a fork of the original Open-AutoGLM project, integrated with [Lybic](https://lybic.ai) cloud sandbox capabilities. It allows you to run Android automation tasks on cloud-based sandboxes without local devices.
 
 [Readme in English](README_en.md)
 
@@ -27,6 +29,33 @@ Phone Agent 是一个基于 AutoGLM 构建的手机端智能助理框架，它�
 ADB(Android Debug Bridge)来控制设备，以视觉语言模型进行屏幕感知，再结合智能规划能力生成并执行操作流程。用户只需用自然语言描述需求，如“打开小红书搜索美食”，Phone
 Agent 即可自动解析意图、理解当前界面、规划下一步动作并完成整个流程。系统还内置敏感操作确认机制，并支持在登录或验证码场景下进行人工接管。同时，它提供远程
 ADB 调试能力，可通过 WiFi 或网络连接设备，实现灵活的远程控制与开发。
+
+## Lybic 云沙盒支持
+
+本项目集成了 Lybic 云沙盒，允许你在没有本地 Android 设备的情况下运行自动化任务。
+
+### 特性
+- **无需本地设备**：直接在云端沙盒中运行
+- **无需 ADB 配置**：通过 API 直接控制
+- **开箱即用**：自动创建和管理沙盒环境
+
+### 快速开始
+
+1. 注册 [Lybic.ai](https://lybic.ai) 获取 `LYBIC_ORG_ID` 和 `LYBIC_API_KEY`
+2. 安装依赖（已包含在 requirements.txt 中）：
+   ```bash
+   pip install lybic
+   ```
+3. 运行任务：
+   ```bash
+   # 使用命令行参数
+   python main.py --lybic --lybic-org-id YOUR_ORG_ID --lybic-api-key YOUR_API_KEY "打开浏览器访问百度"
+   
+   # 或使用环境变量
+   export LYBIC_ORG_ID=your_org_id
+   export LYBIC_API_KEY=your_api_key
+   python main.py --lybic "打开浏览器访问百度"
+   ```
 
 > ⚠️
 > 本项目仅供研究和学习使用。严禁用于非法获取信息、干扰系统或任何违法活动。请仔细审阅 [使用条款](resources/privacy_policy.txt)。
@@ -251,6 +280,9 @@ python main.py --lang en --base-url http://localhost:8000/v1 "Open Chrome browse
 
 # 列出支持的应用
 python main.py --list-apps
+
+# 使用 Lybic 云沙盒
+python main.py --lybic --lybic-org-id <ORG_ID> --lybic-api-key <API_KEY> "打开微信"
 ```
 
 ### Python API
@@ -267,6 +299,11 @@ model_config = ModelConfig(
 
 # 创建 Agent
 agent = PhoneAgent(model_config=model_config)
+
+# 或者使用 Lybic Agent
+# from phone_agent import AgentConfig
+# agent_config = AgentConfig(use_lybic=True, lybic_org_id="...", lybic_api_key="...")
+# agent = PhoneAgent(model_config=model_config, agent_config=agent_config)
 
 # 执行任务
 result = agent.run("打开淘宝搜索无线耳机")
@@ -378,6 +415,9 @@ conn.disconnect("192.168.1.100:5555")
 | `PHONE_AGENT_MAX_STEPS` | 每个任务最大步数         | `100`                      |
 | `PHONE_AGENT_DEVICE_ID` | ADB 设备 ID        | (自动检测)                     |
 | `PHONE_AGENT_LANG`      | 语言 (`cn` 或 `en`) | `cn`                       |
+| `LYBIC_ORG_ID`          | Lybic 组织 ID      | (无)                       |
+| `LYBIC_API_KEY`         | Lybic API Key    | (无)                       |
+| `LYBIC_SANDBOX_ID`      | 指定沙盒 ID         | (自动创建)                     |
 
 ### 模型配置
 

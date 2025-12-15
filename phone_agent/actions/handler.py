@@ -1,10 +1,9 @@
 """Action handler for processing AI model outputs."""
 
 import ast
-import re
 import time
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from phone_agent.adb import (
     back,
@@ -19,6 +18,10 @@ from phone_agent.adb import (
     tap,
     type_text,
 )
+from phone_agent.config.timing import TIMING_CONFIG
+
+if TYPE_CHECKING:
+    from phone_agent.lybic_client import LybicPhoneClient
 
 
 @dataclass
@@ -40,6 +43,7 @@ class ActionHandler:
         confirmation_callback: Optional callback for sensitive action confirmation.
             Should return True to proceed, False to cancel.
         takeover_callback: Optional callback for takeover requests (login, captcha).
+        lybic_client: Optional LybicPhoneClient for cloud sandbox mode.
     """
 
     def __init__(
@@ -47,10 +51,12 @@ class ActionHandler:
         device_id: str | None = None,
         confirmation_callback: Callable[[str], bool] | None = None,
         takeover_callback: Callable[[str], None] | None = None,
+        lybic_client: Optional["LybicPhoneClient"] = None,
     ):
         self.device_id = device_id
         self.confirmation_callback = confirmation_callback or self._default_confirmation
         self.takeover_callback = takeover_callback or self._default_takeover
+        self.lybic_client = lybic_client
 
     def execute(
         self, action: dict[str, Any], screen_width: int, screen_height: int
@@ -66,6 +72,14 @@ class ActionHandler:
         Returns:
             ActionResult indicating success and whether to finish.
         """
+        if self.lybic_client:
+            return self._execute_lybic(action, screen_width, screen_height)
+        return self._execute_adb(action, screen_width, screen_height)
+
+    def _execute_adb(
+        self, action: dict[str, Any], screen_width: int, screen_height: int
+    ) -> ActionResult:
+        """Execute action using ADB."""
         action_type = action.get("_metadata")
 
         if action_type == "finish":
@@ -95,6 +109,52 @@ class ActionHandler:
         except Exception as e:
             return ActionResult(
                 success=False, should_finish=False, message=f"Action failed: {e}"
+            )
+
+    def _execute_lybic(
+        self, action: dict[str, Any], screen_width: int, screen_height: int
+    ) -> ActionResult:
+        """Execute action using Lybic cloud sandbox."""
+        from phone_agent.lybic_client import convert_action_to_lybic
+
+        action_type = action.get("_metadata")
+
+        if action_type == "finish":
+            return ActionResult(
+                success=True, should_finish=True, message=action.get("message")
+            )
+
+        if action_type != "do":
+            return ActionResult(
+                success=False,
+                should_finish=True,
+                message=f"Unknown action type: {action_type}",
+            )
+
+        action_name = action.get("action")
+
+        # Handle takeover specially
+        if action_name == "Take_over":
+            message = action.get("message", "User intervention required")
+            self.takeover_callback(message)
+            return ActionResult(True, False)
+
+        # Handle confirmation for sensitive operations
+        if action_name == "Tap" and "message" in action:
+            if not self.confirmation_callback(action["message"]):
+                return ActionResult(
+                    success=False,
+                    should_finish=True,
+                    message="User cancelled sensitive operation",
+                )
+
+        try:
+            lybic_action = convert_action_to_lybic(action, screen_width, screen_height)
+            self.lybic_client.execute_action_sync(lybic_action)
+            return ActionResult(True, False)
+        except Exception as e:
+            return ActionResult(
+                success=False, should_finish=False, message=f"Lybic action failed: {e}"
             )
 
     def _get_handler(self, action_name: str) -> Callable | None:
@@ -162,18 +222,18 @@ class ActionHandler:
 
         # Switch to ADB keyboard
         original_ime = detect_and_set_adb_keyboard(self.device_id)
-        time.sleep(1.0)
+        time.sleep(TIMING_CONFIG.action.keyboard_switch_delay)
 
         # Clear existing text and type new text
         clear_text(self.device_id)
-        time.sleep(1.0)
+        time.sleep(TIMING_CONFIG.action.text_clear_delay)
 
         type_text(text, self.device_id)
-        time.sleep(1.0)
+        time.sleep(TIMING_CONFIG.action.text_input_delay)
 
         # Restore original keyboard
         restore_keyboard(original_ime, self.device_id)
-        time.sleep(1.0)
+        time.sleep(TIMING_CONFIG.action.keyboard_restore_delay)
 
         return ActionResult(True, False)
 

@@ -13,6 +13,7 @@ Environment Variables:
     PHONE_AGENT_DEVICE_ID: ADB device ID for multi-device setups
 """
 
+import asyncio
 import argparse
 import os
 import shutil
@@ -257,7 +258,7 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Run with default settings
+    # Run with default settings (ADB mode)
     python main.py
 
     # Specify model endpoint
@@ -280,6 +281,15 @@ Examples:
 
     # List supported apps
     python main.py --list-apps
+
+    # Use Lybic cloud sandbox (auto-create sandbox)
+    python main.py --lybic
+
+    # Use Lybic with existing sandbox
+    python main.py --lybic --lybic-sandbox-id your-sandbox-id
+
+    # Use Lybic with custom configuration
+    python main.py --lybic --lybic-org-id your-org --lybic-api-key your-key
         """,
     )
 
@@ -368,6 +378,48 @@ Examples:
         help="Language for system prompt (cn or en, default: cn)",
     )
 
+    # Lybic cloud sandbox options
+    parser.add_argument(
+        "--lybic",
+        action="store_true",
+        help="Use Lybic cloud sandbox instead of local ADB",
+    )
+
+    parser.add_argument(
+        "--lybic-org-id",
+        type=str,
+        default=os.getenv("LYBIC_ORG_ID"),
+        help="Lybic organization ID (env: LYBIC_ORG_ID)",
+    )
+
+    parser.add_argument(
+        "--lybic-api-key",
+        type=str,
+        default=os.getenv("LYBIC_API_KEY"),
+        help="Lybic API key (env: LYBIC_API_KEY)",
+    )
+
+    parser.add_argument(
+        "--lybic-endpoint",
+        type=str,
+        default=os.getenv("LYBIC_API_ENDPOINT"),
+        help="Lybic API endpoint (env: LYBIC_API_ENDPOINT)",
+    )
+
+    parser.add_argument(
+        "--lybic-sandbox-id",
+        type=str,
+        default=os.getenv("LYBIC_SANDBOX_ID"),
+        help="Existing Lybic sandbox ID to use (env: LYBIC_SANDBOX_ID)",
+    )
+
+    parser.add_argument(
+        "--lybic-sandbox-shape",
+        type=str,
+        default=os.getenv("LYBIC_SANDBOX_SHAPE", "guangzhou-4c6g-android-12"),
+        help="Lybic sandbox shape for new sandbox (env: LYBIC_SANDBOX_SHAPE)",
+    )
+
     parser.add_argument(
         "task",
         nargs="?",
@@ -448,7 +500,7 @@ def handle_device_commands(args) -> bool:
     return False
 
 
-def main():
+async def main():
     """Main entry point."""
     args = parse_args()
 
@@ -460,11 +512,11 @@ def main():
         return
 
     # Handle device commands (these may need partial system checks)
-    if handle_device_commands(args):
+    if not args.lybic and handle_device_commands(args):
         return
 
-    # Run system requirements check before proceeding
-    if not check_system_requirements():
+    # Run system requirements check before proceeding (skip for lybic mode)
+    if not args.lybic and not check_system_requirements():
         sys.exit(1)
 
     # Check model API connectivity and model availability
@@ -484,6 +536,13 @@ def main():
         device_id=args.device_id,
         verbose=not args.quiet,
         lang=args.lang,
+        # Lybic configuration
+        use_lybic=args.lybic,
+        lybic_org_id=args.lybic_org_id,
+        lybic_api_key=args.lybic_api_key,
+        lybic_endpoint=args.lybic_endpoint,
+        lybic_sandbox_id=args.lybic_sandbox_id,
+        lybic_sandbox_shape=args.lybic_sandbox_shape,
     )
 
     # Create agent
@@ -501,12 +560,19 @@ def main():
     print(f"Max Steps: {agent_config.max_steps}")
     print(f"Language: {agent_config.lang}")
 
-    # Show device info
-    devices = list_devices()
-    if agent_config.device_id:
-        print(f"Device: {agent_config.device_id}")
-    elif devices:
-        print(f"Device: {devices[0].device_id} (auto-detected)")
+    # Show device/sandbox info
+    if args.lybic:
+        print(f"Mode: Lybic Cloud Sandbox")
+        if args.lybic_sandbox_id:
+            print(f"Sandbox ID: {args.lybic_sandbox_id}")
+        else:
+            print(f"Sandbox Shape: {args.lybic_sandbox_shape} (will be created)")
+    else:
+        devices = list_devices()
+        if agent_config.device_id:
+            print(f"Device: {agent_config.device_id}")
+        elif devices:
+            print(f"Device: {devices[0].device_id} (auto-detected)")
 
     print("=" * 50)
 
@@ -543,4 +609,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
+

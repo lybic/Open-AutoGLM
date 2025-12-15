@@ -3,7 +3,7 @@
 import json
 import traceback
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from phone_agent.actions import ActionHandler
 from phone_agent.actions.handler import do, finish, parse_action
@@ -11,6 +11,9 @@ from phone_agent.adb import get_current_app, get_screenshot
 from phone_agent.config import get_messages, get_system_prompt
 from phone_agent.model import ModelClient, ModelConfig
 from phone_agent.model.client import MessageBuilder
+
+if TYPE_CHECKING:
+    from phone_agent.lybic_client import LybicPhoneClient
 
 
 @dataclass
@@ -22,6 +25,13 @@ class AgentConfig:
     lang: str = "cn"
     system_prompt: str | None = None
     verbose: bool = True
+    # Lybic configuration
+    use_lybic: bool = False
+    lybic_org_id: str | None = None
+    lybic_api_key: str | None = None
+    lybic_endpoint: str | None = None
+    lybic_sandbox_id: str | None = None
+    lybic_sandbox_shape: str = "android-1m-cn1"
 
     def __post_init__(self):
         if self.system_prompt is None:
@@ -72,10 +82,25 @@ class PhoneAgent:
         self.agent_config = agent_config or AgentConfig()
 
         self.model_client = ModelClient(self.model_config)
+
+        # Initialize lybic client if configured
+        self.lybic_client: Optional["LybicPhoneClient"] = None
+        if self.agent_config.use_lybic:
+            from phone_agent.lybic_client import LybicPhoneClient, LybicConfig
+            lybic_config = LybicConfig(
+                org_id=self.agent_config.lybic_org_id,
+                api_key=self.agent_config.lybic_api_key,
+                endpoint=self.agent_config.lybic_endpoint,
+                sandbox_id=self.agent_config.lybic_sandbox_id,
+                sandbox_shape=self.agent_config.lybic_sandbox_shape,
+            )
+            self.lybic_client = LybicPhoneClient(lybic_config)
+
         self.action_handler = ActionHandler(
             device_id=self.agent_config.device_id,
             confirmation_callback=confirmation_callback,
             takeover_callback=takeover_callback,
+            lybic_client=self.lybic_client,
         )
 
         self._context: list[dict[str, Any]] = []
@@ -140,8 +165,14 @@ class PhoneAgent:
         self._step_count += 1
 
         # Capture current screen state
-        screenshot = get_screenshot(self.agent_config.device_id)
-        current_app = get_current_app(self.agent_config.device_id)
+        if self.lybic_client:
+            # Use lybic for screenshot and current app
+            screenshot = self.lybic_client.get_screenshot_sync()
+            current_app = self.lybic_client.get_current_app()
+        else:
+            # Use ADB
+            screenshot = get_screenshot(self.agent_config.device_id)
+            current_app = get_current_app(self.agent_config.device_id)
 
         # Build messages
         if is_first:

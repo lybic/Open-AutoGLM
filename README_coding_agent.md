@@ -183,6 +183,68 @@ print(result)
 | `PHONE_AGENT_MAX_STEPS`   | Max steps per task        | `100`                        |
 | `PHONE_AGENT_DEVICE_ID`   | ADB device ID             | (auto-detect)                |
 | `PHONE_AGENT_LANG`        | Language (`cn`/`en`)      | `cn`                         |
+| `LYBIC_ORG_ID`            | Lybic organization ID     | (required for Lybic mode)    |
+| `LYBIC_API_KEY`           | Lybic API key             | (required for Lybic mode)    |
+| `LYBIC_API_ENDPOINT`      | Lybic API endpoint        | `https://api.lybic.cn`       |
+| `LYBIC_SANDBOX_ID`        | Existing sandbox ID       | (auto-create if not set)     |
+| `LYBIC_SANDBOX_SHAPE`     | Sandbox shape             | `android-1m-cn1`             |
+
+---
+
+## Lybic Cloud Sandbox Mode
+
+Instead of using a local Android device with ADB, you can use Lybic cloud sandbox for remote Android automation.
+
+### Prerequisites
+
+1. Register at [lybic.ai](https://lybic.ai) to get your organization ID and API key
+2. Install the lybic SDK: `pip install lybic`
+
+### Usage
+
+```bash
+# Use Lybic with environment variables
+export LYBIC_ORG_ID=your-org-id
+export LYBIC_API_KEY=your-api-key
+python main.py --lybic
+
+# Use Lybic with command line arguments
+python main.py --lybic --lybic-org-id your-org-id --lybic-api-key your-api-key
+
+# Use an existing sandbox
+python main.py --lybic --lybic-sandbox-id your-sandbox-id
+
+# Specify sandbox shape
+python main.py --lybic --lybic-sandbox-shape android-1m-cn1
+```
+
+### Python API with Lybic
+
+```python
+from phone_agent import PhoneAgent, AgentConfig
+from phone_agent.model import ModelConfig
+
+# Configure model
+model_config = ModelConfig(
+    base_url="<MODEL_API_URL>",
+    model_name="<MODEL_NAME>",
+)
+
+# Configure agent with Lybic
+agent_config = AgentConfig(
+    use_lybic=True,
+    lybic_org_id="your-org-id",
+    lybic_api_key="your-api-key",
+    lybic_sandbox_shape="android-1m-cn1",
+)
+
+# Create Agent
+agent = PhoneAgent(model_config=model_config, agent_config=agent_config)
+
+# Execute task
+result = agent.run("Open eBay and search for wireless earbuds")
+print(result)
+```
 
 ---
 
@@ -385,6 +447,68 @@ print(result)
 | `PHONE_AGENT_MAX_STEPS`   | 每个任务最大步数         | `100`                      |
 | `PHONE_AGENT_DEVICE_ID`   | ADB 设备 ID        | (自动检测)                     |
 | `PHONE_AGENT_LANG`        | 语言 (`cn`/`en`)   | `cn`                       |
+| `LYBIC_ORG_ID`            | Lybic 组织 ID      | (Lybic 模式必需)               |
+| `LYBIC_API_KEY`           | Lybic API Key    | (Lybic 模式必需)               |
+| `LYBIC_API_ENDPOINT`      | Lybic API 端点     | `https://api.lybic.cn`     |
+| `LYBIC_SANDBOX_ID`        | 已有沙盒 ID          | (未设置则自动创建)                 |
+| `LYBIC_SANDBOX_SHAPE`     | 沙盒规格             | `android-1m-cn1`           |
+
+---
+
+## Lybic 云沙盒模式
+
+除了使用本地 ADB 连接 Android 设备外，你还可以使用 Lybic 云沙盒进行远程 Android 自动化。
+
+### 前提条件
+
+1. 在 [lybic.ai](https://lybic.ai) 注册获取组织 ID 和 API Key
+2. 安装 lybic SDK：`pip install lybic`
+
+### 使用方法
+
+```bash
+# 使用环境变量
+export LYBIC_ORG_ID=your-org-id
+export LYBIC_API_KEY=your-api-key
+python main.py --lybic
+
+# 使用命令行参数
+python main.py --lybic --lybic-org-id your-org-id --lybic-api-key your-api-key
+
+# 使用已有沙盒
+python main.py --lybic --lybic-sandbox-id your-sandbox-id
+
+# 指定沙盒规格
+python main.py --lybic --lybic-sandbox-shape android-1m-cn1
+```
+
+### 使用 Lybic 的 Python API
+
+```python
+from phone_agent import PhoneAgent, AgentConfig
+from phone_agent.model import ModelConfig
+
+# 配置模型
+model_config = ModelConfig(
+    base_url="<模型API地址>",
+    model_name="<模型名称>",
+)
+
+# 配置 Agent 使用 Lybic
+agent_config = AgentConfig(
+    use_lybic=True,
+    lybic_org_id="your-org-id",
+    lybic_api_key="your-api-key",
+    lybic_sandbox_shape="android-1m-cn1",
+)
+
+# 创建 Agent
+agent = PhoneAgent(model_config=model_config, agent_config=agent_config)
+
+# 执行任务
+result = agent.run("打开淘宝搜索无线耳机")
+print(result)
+```
 
 ---
 
